@@ -113,32 +113,33 @@ data[1] = data[1].drop(['Cabin'], axis=1)
 data[0] = data[0].drop(['Ticket'], axis=1)
 data[1] = data[1].drop(['Ticket'], axis=1)
 
-#Fill Missing Data in Age
+# Convert Fare  from float to int64
 for dataset in data:
-    mean = train_df['Age'].mean()
-    std = test_df['Age'].std()
-    is_null = dataset['Age'].isnull().sum()
-    # compute random numbers between the mean, std and is_null
-    rand_age = np.random.randint(mean - std, mean + std, size = is_null)
-    # fill NaN values in Age column with random values generated
-    age_slice = dataset['Age'].copy()
-    age_slice[np.isnan(age_slice)] = rand_age
+    dataset['Fare'] = dataset['Fare'].fillna(0)
+    dataset['Fare'] = dataset['Fare'].astype(int)
 
-    dataset['Age'] = age_slice
+for dataset in data:
+    dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] = 0
+    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1
+    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2
+    dataset.loc[(dataset['Fare'] > 31) & (dataset['Fare'] <= 99), 'Fare']   = 3
+    dataset.loc[(dataset['Fare'] > 99) & (dataset['Fare'] <= 250), 'Fare']   = 4
+    dataset.loc[ dataset['Fare'] > 250, 'Fare'] = 5
+    dataset['Fare'] = dataset['Fare'].astype(int)
+
+#Fill Missing Data in Age
+#data[0]['Age'].fillna(lambda x: int(groupMean[x]), inplace = True)
+
+for dataset in data:
+    print(dataset['Fare'].isnull().sum())
+    dataset['Age'] = dataset.groupby(['Fare','Sex'])['Age'].transform(lambda x: x.fillna(x.mean()))
     dataset['Age'] = dataset['Age'].astype(int)
-#train_df['Salutation'] = train_df.Name.apply(lambda name: group = maindf.groupby(['Salutation', 'Pclass'])
-#group.Age.apply(lambda x: x.fillna(x.median()))
-#train_df.Age.fillna(maindf.Age.median, inplace = True)
-
+    print(dataset.Age.sum())
 # Fill missing embarktion data
 for dataset in data:
     dataset['Embarked'] = dataset['Embarked'].fillna('S')
 
 # Convert Features
-# Convert Fare  from float to int64
-for dataset in data:
-    dataset['Fare'] = dataset['Fare'].fillna(0)
-    dataset['Fare'] = dataset['Fare'].astype(int)
 
 # Convert Sex and Ports to int
 ports = {"S": 0, "C": 1, "Q": 2}
@@ -160,59 +161,53 @@ for dataset in data:
     dataset.loc[ dataset['Age'] > 66, 'Age'] = 6
 
 for dataset in data:
-    dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] = 0
-    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1
-    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2
-    dataset.loc[(dataset['Fare'] > 31) & (dataset['Fare'] <= 99), 'Fare']   = 3
-    dataset.loc[(dataset['Fare'] > 99) & (dataset['Fare'] <= 250), 'Fare']   = 4
-    dataset.loc[ dataset['Fare'] > 250, 'Fare'] = 5
-    dataset['Fare'] = dataset['Fare'].astype(int)
-
-for dataset in data:
     dataset['Age_Class']= dataset['Age']* dataset['Pclass']
-    dataset['Fare_Per_Person'] = dataset['Fare']/(dataset['relatives']+1)
-    dataset['Fare_Per_Person'] = dataset['Fare_Per_Person'].astype(int)
-
-print(data[0].head(5))
-print(data[1].head(5))
+#print(data[0].head(5))
+#print(data[1].head(5))
 
 X_train = data[0].drop("Survived", axis=1)
 Y_train = data[0]["Survived"]
 X_test  = data[1].drop("PassengerId", axis=1).copy()
 
 # Random Forest 
-random_forest = RandomForestClassifier(n_estimators=100)
+random_forest = RandomForestClassifier(criterion = "gini", 
+                                       min_samples_leaf = 1, 
+                                       min_samples_split = 2,   
+                                       n_estimators=100, 
+                                       max_features='auto', 
+                                       oob_score=True, 
+                                       random_state=0, 
+                                       n_jobs=-1)
 random_forest.fit(X_train, Y_train)
-
 rf_Y_prediction = random_forest.predict(X_test)
-
-random_forest.score(X_train, Y_train)
-acc_random_forest = round(random_forest.score(X_train, Y_train) * 100, 2)
+acc_random_forest = round(random_forest.score(X_train, Y_train) * 100, 3)
 
 # Logistic Regression
 logreg = LogisticRegression()
 logreg.fit(X_train, Y_train)
-
 log_Y_prediction = logreg.predict(X_test)
-
-acc_log = round(logreg.score(X_train, Y_train) * 100, 2)
+acc_log = round(logreg.score(X_train, Y_train) * 100, 3)
 
 # K-mean
-kNN = KNeighborsClassifier(n_neighbors = 3)
+kNN = KNeighborsClassifier(n_neighbors = 2)
 kNN.fit(X_train, Y_train)
 kNN_Y_prediction = kNN.predict(X_test)
-acc_kNN = round(kNN.score(X_train, Y_train) * 100, 2)
+acc_kNN = round(kNN.score(X_train, Y_train) * 100, 3)
 
+# Decision Tree
 decision_tree = DecisionTreeClassifier()
 decision_tree.fit(X_train, Y_train)
 dt_Y_pred = decision_tree.predict(X_test)
-acc_decision_tree = round(decision_tree.score(X_train, Y_train) * 100, 2)
+acc_decision_tree = round(decision_tree.score(X_train, Y_train) * 100, 3)
 
 results = pd.DataFrame({
     'Model':['KNN', 'Logistic Regression', 
               'Random Forest', 'Decision Tree'],
-    'Score': [acc_kNN, acc_log, 
-              acc_random_forest, acc_decision_tree]})
+    'Score': [acc_kNN, acc_log, acc_random_forest, acc_decision_tree]})
 result_df = results.sort_values(by='Score', ascending=False)
 result_df = result_df.set_index('Score')
 print(result_df)
+
+importances = pd.DataFrame({'feature':X_train.columns,'importance':np.round(random_forest.feature_importances_,3)})
+importances = importances.sort_values('importance',ascending=False).set_index('feature')
+#print(importances.head(15))
