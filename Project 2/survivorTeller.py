@@ -107,9 +107,11 @@ data[1] = data[1].drop(['Name'], axis=1)
 data[0] = data[0].drop(['PassengerId'], axis=1)
 
 # Drop the Cabin and Ticket feature
-for dataset in data:
-    dataset = dataset.drop(['Cabin'], axis=1)
-    dataset = dataset.drop(['Ticket'], axis=1)
+data[0] = data[0].drop(['Cabin'], axis=1)
+data[1] = data[1].drop(['Cabin'], axis=1)
+
+data[0] = data[0].drop(['Ticket'], axis=1)
+data[1] = data[1].drop(['Ticket'], axis=1)
 
 #Fill Missing Data in Age
 for dataset in data:
@@ -171,6 +173,46 @@ for dataset in data:
     dataset['Fare_Per_Person'] = dataset['Fare']/(dataset['relatives']+1)
     dataset['Fare_Per_Person'] = dataset['Fare_Per_Person'].astype(int)
 
+print(data[0].head(5))
+print(data[1].head(5))
+
 X_train = data[0].drop("Survived", axis=1)
 Y_train = data[0]["Survived"]
 X_test  = data[1].drop("PassengerId", axis=1).copy()
+
+# Random Forest 
+random_forest = RandomForestClassifier(n_estimators=100)
+random_forest.fit(X_train, Y_train)
+
+rf_Y_prediction = random_forest.predict(X_test)
+
+random_forest.score(X_train, Y_train)
+acc_random_forest = round(random_forest.score(X_train, Y_train) * 100, 2)
+
+# Logistic Regression
+logreg = LogisticRegression()
+logreg.fit(X_train, Y_train)
+
+log_Y_prediction = logreg.predict(X_test)
+
+acc_log = round(logreg.score(X_train, Y_train) * 100, 2)
+
+# K-mean
+kNN = KNeighborsClassifier(n_neighbors = 3)
+kNN.fit(X_train, Y_train)
+kNN_Y_prediction = kNN.predict(X_test)
+acc_kNN = round(kNN.score(X_train, Y_train) * 100, 2)
+
+decision_tree = DecisionTreeClassifier()
+decision_tree.fit(X_train, Y_train)
+dt_Y_pred = decision_tree.predict(X_test)
+acc_decision_tree = round(decision_tree.score(X_train, Y_train) * 100, 2)
+
+results = pd.DataFrame({
+    'Model':['KNN', 'Logistic Regression', 
+              'Random Forest', 'Decision Tree'],
+    'Score': [acc_kNN, acc_log, 
+              acc_random_forest, acc_decision_tree]})
+result_df = results.sort_values(by='Score', ascending=False)
+result_df = result_df.set_index('Score')
+print(result_df)
