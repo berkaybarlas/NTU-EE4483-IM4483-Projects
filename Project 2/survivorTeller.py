@@ -27,8 +27,6 @@ from sklearn.model_selection import GridSearchCV
 # Ignore Pandas warnings
 warnings.filterwarnings('ignore')
 
-# exec("%matplotlib inline")
-
 test_df = pd.read_csv("test.csv")
 test_df_sol = pd.read_csv("test-solution.csv")
 train_df = pd.read_csv("train.csv")
@@ -39,6 +37,7 @@ data = [train_df, test_df]
 # print(train_df.describe())
 # print("test")
 
+### Investigate Given Data ###
 total = train_df.isnull().sum().sort_values(ascending=False)
 percent_1 = train_df.isnull().sum()/train_df.isnull().count()*100
 percent_2 = (round(percent_1, 1)).sort_values(ascending=False)
@@ -85,19 +84,21 @@ plt.close()
 # The effect of Relatives   
 sns.factorplot('Relatives','Survived', data=train_df, aspect = 2.5, ax=rAx[2])
 plt.close()
-
 #plt.show()
+
+### Prepare The Data For Training
 
 # Use name to get titles and drop it
 titles = {"Mr": 1, "Miss": 2, "Mrs": 3, "Master": 4, "Royal": 5 ,"Rare": 6}
 
 for dataset in data:
-    # extract titles
+    # Extract titles from name
     dataset['Title'] = dataset.Name.str.extract(' ([A-Za-z]+)\.', expand=False)
-    # replace titles with a more common title or as Rare
+    # Replace titles as Royal
+    dataset['Title'] = dataset['Title'].replace(['Countess', 'Lady', 'Sir'], 'Royal')
+    # Replace titles with a more common title or as Rare
     dataset['Title'] = dataset['Title'].replace(['Lady', 'Capt', 'Col',
                                             'Don', 'Dr', 'Major', 'Rev', 'Jonkheer', 'Dona'], 'Rare')
-    dataset['Title'] = dataset['Title'].replace(['Countess', 'Lady', 'Sir'], 'Royal')
     dataset['Title'] = dataset['Title'].replace('Mlle', 'Miss')
     dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')
     dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')
@@ -115,7 +116,7 @@ data[1] = data[1].drop(['Name'], axis=1)
 #Drop the PassengerId feature
 data[0] = data[0].drop(['PassengerId'], axis=1)
 
-# Drop the Cabin and Ticket feature
+# Drop the Cabin, Ticket and Parch feature
 data[0] = data[0].drop(['Cabin'], axis=1)
 data[1] = data[1].drop(['Cabin'], axis=1)
 
@@ -133,6 +134,7 @@ for dataset in data:
     dataset['Fare'] = dataset['Fare'].fillna(0)
     dataset['Fare'] = dataset['Fare'].astype(int)
 
+# Create Fare Classes
 for dataset in data:
     dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] = 0
     dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1
@@ -143,8 +145,6 @@ for dataset in data:
     dataset['Fare'] = dataset['Fare'].astype(int)
 
 #Fill Missing Data in Age
-#data[0]['Age'].fillna(lambda x: int(groupMean[x]), inplace = True)
-
 for dataset in data:
     dataset['Age'] = dataset.groupby(['Fare','Sex'])['Age'].transform(lambda x: x.fillna(x.mean()))
     dataset['Age'] = dataset['Age'].astype(int)
@@ -168,7 +168,6 @@ for dataset in data:
     dataset.loc[(dataset['Age'] > 5) & (dataset['Age'] <= 11), 'Age'] = 1
     dataset.loc[(dataset['Age'] > 11) & (dataset['Age'] <= 18), 'Age'] = 2
     dataset.loc[(dataset['Age'] > 18) & (dataset['Age'] <= 22), 'Age'] = 3
-    #dataset.loc[(dataset['Age'] > 22) & (dataset['Age'] <= 27), 'Age'] = 3
     dataset.loc[(dataset['Age'] > 22) & (dataset['Age'] <= 35), 'Age'] = 4
     dataset.loc[(dataset['Age'] > 35) & (dataset['Age'] <= 40), 'Age'] = 5
     dataset.loc[(dataset['Age'] > 40) & (dataset['Age'] <= 66), 'Age'] = 6
@@ -240,12 +239,11 @@ print('kNN accuracy: % 5.2f' %(knn_acc))
 print('Decision tree accuracy: % 5.2f' %(decision_acc))
 
 # Choose the type of classifier. 
-clf = RandomForestClassifier()
+clfier = RandomForestClassifier()
 
 # Choose some parameter combinations to try
-parameters = {'n_estimators': [50,100],
+parameters = {'n_estimators': [20,50,100],
               'oob_score': [True],
-              'random_state': [0],
               'max_features': ['log2', 'sqrt','auto'], 
               'criterion': ['entropy', 'gini'],
               'max_depth': [2, 4, 10], 
@@ -256,16 +254,16 @@ parameters = {'n_estimators': [50,100],
 acc_scorer = make_scorer(accuracy_score)
 
 # Run the grid search
-grid_obj = GridSearchCV(clf, parameters, scoring=acc_scorer)
+grid_obj = GridSearchCV(clfier, parameters, scoring=acc_scorer)
 grid_obj = grid_obj.fit(X_train, Y_train)
 
-# Set the clf to the best combination of parameters
-clf = grid_obj.best_estimator_
+# Set the clfier to the best combination of parameters
+clfier = grid_obj.best_estimator_
 
-# Fit the best algorithm to the data. 
-clf.fit(X_train, Y_train)
+# Fit the best algorithm combination to the data. 
+clfier.fit(X_train, Y_train)
 
-predictions = clf.predict(X_test)
+predictions = clfier.predict(X_test)
 fitted_rf_acc = accuracy_score(Y_test, predictions) * 100
 print('Best Random tree accuracy: % 5.2f' %(fitted_rf_acc))
 rf_output = pd.DataFrame({ 'PassengerId' : ids, 'Survived': rf_Y_prediction })
